@@ -346,6 +346,18 @@ export default function PostDetailsModal({
 
   const threadTree = useMemo(() => buildThreadTree(replies, post.id), [replies, post.id]);
 
+  useEffect(() => {
+    const collapsed: Record<string, boolean> = {};
+    const walk = (nodes: ThreadNode[]) => {
+      nodes.forEach((node) => {
+        if (node.depth > 0) collapsed[node.post.id] = true;
+        walk(node.children);
+      });
+    };
+    walk(threadTree);
+    setCollapsedIds(collapsed);
+  }, [threadTree]);
+
   const formatDate = (d: string) => {
     try {
       return new Date(d).toLocaleString("en-US", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
