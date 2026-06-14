@@ -399,7 +399,7 @@ export default function App() {
                 return (
                   <button
                     key={b.id}
-                    onClick={() => setActiveBoardId(b.id)}
+                    onClick={() => { setActiveBoardId(b.id); closePost(); }}
                     className={`w-full text-left flex items-center gap-2 px-2 text-sm transition-colors ${
                       isActive ? "font-bold" : "text-slate-600 hover:text-[#222] hover:bg-slate-50"
                     }`}
@@ -433,7 +433,7 @@ export default function App() {
               </div>
               <div className="space-y-0.5">
                 <button
-                  onClick={() => setActiveTag("all")}
+                  onClick={() => { setActiveTag("all"); closePost(); }}
                   className={`w-full text-left flex items-center gap-2 px-2 text-sm transition-colors ${
                     activeTag === "all" ? "font-bold" : "text-slate-600 hover:text-[#222] hover:bg-slate-50"
                   }`}
@@ -452,7 +452,7 @@ export default function App() {
                   return (
                     <button
                       key={sub.id}
-                      onClick={() => setActiveTag(sub.tag)}
+                      onClick={() => { setActiveTag(sub.tag); closePost(); }}
                       className={`w-full text-left flex items-center gap-2 px-2 text-sm transition-colors ${
                         isSelected ? "font-bold" : "text-slate-600 hover:text-[#222] hover:bg-slate-50"
                       }`}
