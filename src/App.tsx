@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import {
   LogIn, RefreshCw, Hash, Layers,
   X, Search, Plus, MessageSquare, Heart,
-  Home, FolderOpen, Send, Filter
+  Home, FolderOpen, Send, Filter, AlertCircle, Globe, EyeOff, Lock,
+  BarChart2, Trash2, ChevronDown,
 } from "lucide-react";
-import { Board, MastodonPost, MastodonUserSession } from "./types";
+import { Board, MastodonPost, MastodonUserSession, PostOptions } from "./types";
 import { DEFAULT_BOARDS } from "./config/boards";
 import { fetchHashtagFeed, fetchStatus, postStatus } from "./lib/mastodon-api";
 import { initiateLogin, completePkceLogin, getRedirectUri, loadSession, clearSession } from "./lib/mastodon-auth";
@@ -57,6 +58,13 @@ export default function App() {
   const [submittingNewTopic, setSubmittingNewTopic] = useState(false);
   const [newTopicError, setNewTopicError] = useState<string | null>(null);
   const [newTopicSuccess, setNewTopicSuccess] = useState<string | null>(null);
+  const [newTopicCw, setNewTopicCw] = useState("");
+  const [newTopicCwEnabled, setNewTopicCwEnabled] = useState(false);
+  const [newTopicVisibility, setNewTopicVisibility] = useState<PostOptions["visibility"]>("public");
+  const [newTopicPollEnabled, setNewTopicPollEnabled] = useState(false);
+  const [newTopicPollOptions, setNewTopicPollOptions] = useState(["", ""]);
+  const [newTopicPollMultiple, setNewTopicPollMultiple] = useState(false);
+  const [newTopicPollExpiry, setNewTopicPollExpiry] = useState(86400);
 
   useEffect(() => {
     // Restore session
@@ -180,10 +188,31 @@ export default function App() {
     });
   };
 
+  const resetNewTopicModal = () => {
+    setNewTopicContent("");
+    setNewTopicCw("");
+    setNewTopicCwEnabled(false);
+    setNewTopicVisibility("public");
+    setNewTopicPollEnabled(false);
+    setNewTopicPollOptions(["", ""]);
+    setNewTopicPollMultiple(false);
+    setNewTopicPollExpiry(86400);
+    setNewTopicError(null);
+    setNewTopicSuccess(null);
+  };
+
   const handleCreateTopic = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userSession) { setShowLoginDialog(true); return; }
     if (!newTopicContent.trim()) { setNewTopicError("Topic content cannot be empty."); return; }
+
+    const opts: PostOptions = { visibility: newTopicVisibility };
+    if (newTopicCwEnabled && newTopicCw.trim()) opts.spoilerText = newTopicCw.trim();
+    if (newTopicPollEnabled) {
+      const validOptions = newTopicPollOptions.map((o) => o.trim()).filter(Boolean);
+      if (validOptions.length < 2) { setNewTopicError("Poll requires at least 2 options."); return; }
+      opts.poll = { options: validOptions, expires_in: newTopicPollExpiry, multiple: newTopicPollMultiple };
+    }
 
     setSubmittingNewTopic(true);
     setNewTopicError(null);
@@ -193,12 +222,11 @@ export default function App() {
       if (newTopicTag && !text.toLowerCase().includes(`#${newTopicTag.toLowerCase()}`)) {
         text += `\n\n#${newTopicTag}`;
       }
-      await postStatus(text, userSession.instance, userSession.token);
+      await postStatus(text, userSession.instance, userSession.token, opts);
       setNewTopicSuccess("Topic published to Mastodon!");
-      setNewTopicContent("");
+      resetNewTopicModal();
       setTimeout(() => {
         setShowNewTopicModal(false);
-        setNewTopicSuccess(null);
         if (activeBoard) activeBoard.subboards.forEach((sub) => loadSubboardFeed(sub.id, sub.tag));
       }, 1500);
     } catch (err: any) {
@@ -828,9 +856,9 @@ export default function App() {
 
       {/* New topic modal */}
       {showNewTopicModal && activeBoard && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div
-            className="bg-white w-full max-w-lg shadow-2xl"
+            className="bg-white w-full max-w-lg shadow-2xl my-auto"
             style={{ borderRadius: "4px", border: "1px solid #e9e9e9" }}
           >
             <div className="flex justify-between items-start px-5 py-4" style={{ borderBottom: "1px solid #e9e9e9" }}>
@@ -844,7 +872,7 @@ export default function App() {
                 </p>
               </div>
               <button
-                onClick={() => setShowNewTopicModal(false)}
+                onClick={() => { setShowNewTopicModal(false); resetNewTopicModal(); }}
                 className="text-slate-400 hover:text-slate-700 p-1 ml-4 flex-shrink-0"
                 style={{ borderRadius: "4px" }}
               >
@@ -858,12 +886,13 @@ export default function App() {
               </div>
             )}
             {newTopicSuccess && (
-              <div className="mx-5 mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm" style={{ borderRadius: "4px" }}>
+              <div className="mx-5 mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold" style={{ borderRadius: "4px" }}>
                 {newTopicSuccess}
               </div>
             )}
 
             <form onSubmit={handleCreateTopic} className="px-5 py-4 space-y-4">
+              {/* Hashtag */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
                   Default Hashtag
@@ -882,39 +911,208 @@ export default function App() {
                         borderColor: newTopicTag.toLowerCase() === sub.tag.toLowerCase() ? "#b3d9ee" : "#ddd",
                       }}
                     >
-                      #{sub.tag} ({sub.title})
+                      #{sub.tag}
                     </button>
                   ))}
                 </div>
               </div>
 
+              {/* Visibility */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Visibility
+                </label>
+                <div className="relative">
+                  <select
+                    value={newTopicVisibility}
+                    onChange={(e) => setNewTopicVisibility(e.target.value as PostOptions["visibility"])}
+                    className="w-full text-sm border border-slate-200 px-3 py-2 focus:outline-none bg-white appearance-none pr-8"
+                    style={{ borderRadius: "4px" }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "#0088cc")}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = "")}
+                    disabled={submittingNewTopic}
+                  >
+                    <option value="public">🌐 Public — visible to everyone</option>
+                    <option value="unlisted">👁️ Unlisted — not in public timelines</option>
+                    <option value="private">🔒 Followers only</option>
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Content warning */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                    Content Warning
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setNewTopicCwEnabled((v) => !v)}
+                    className="text-xs font-bold transition px-2 py-0.5 border"
+                    style={{
+                      borderRadius: "4px",
+                      backgroundColor: newTopicCwEnabled ? "#fef3c7" : "#f8f8f8",
+                      color: newTopicCwEnabled ? "#d97706" : "#888",
+                      borderColor: newTopicCwEnabled ? "#fcd34d" : "#ddd",
+                    }}
+                  >
+                    <AlertCircle className="w-3 h-3 inline mr-1" />
+                    {newTopicCwEnabled ? "CW On" : "Add CW"}
+                  </button>
+                </div>
+                {newTopicCwEnabled && (
+                  <input
+                    type="text"
+                    value={newTopicCw}
+                    onChange={(e) => setNewTopicCw(e.target.value)}
+                    placeholder="Content warning summary (e.g. 'NSFW' or 'Discussion about…')"
+                    className="w-full text-sm border border-amber-200 bg-amber-50 px-3 py-2 focus:outline-none"
+                    style={{ borderRadius: "4px" }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "#f59e0b")}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = "")}
+                    disabled={submittingNewTopic}
+                    autoFocus
+                  />
+                )}
+              </div>
+
+              {/* Message */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
                   Your Message
                 </label>
-                <textarea
-                  required
-                  rows={5}
-                  value={newTopicContent}
-                  onChange={(e) => setNewTopicContent(e.target.value)}
-                  placeholder="Write your forum post here…"
-                  className="w-full text-sm border border-slate-200 px-3 py-2 resize-none focus:outline-none leading-relaxed"
+                <div
+                  className="border border-slate-200 overflow-hidden"
                   style={{ borderRadius: "4px" }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = "#0088cc")}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = "")}
-                  disabled={submittingNewTopic}
-                />
-                {newTopicTag && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Hashtag <strong>#{newTopicTag}</strong> will be appended automatically.
-                  </p>
+                  onFocusCapture={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0088cc"; }}
+                  onBlurCapture={(e) => { (e.currentTarget as HTMLElement).style.borderColor = ""; }}
+                >
+                  <textarea
+                    required
+                    rows={5}
+                    value={newTopicContent}
+                    onChange={(e) => setNewTopicContent(e.target.value)}
+                    placeholder="Write your forum post here…"
+                    className="w-full text-sm px-3 py-2 resize-none focus:outline-none leading-relaxed border-none bg-transparent"
+                    disabled={submittingNewTopic}
+                  />
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-[#f8f8f8]" style={{ borderTop: "1px solid #e9e9e9" }}>
+                    {newTopicTag ? (
+                      <span className="text-xs text-slate-400">
+                        <strong style={{ color: "#0088cc" }}>#{newTopicTag}</strong> appended automatically
+                      </span>
+                    ) : <span />}
+                    <span
+                      className={`text-xs font-mono font-bold ${newTopicContent.length > 480 ? "text-red-500" : "text-slate-400"}`}
+                    >
+                      {500 - newTopicContent.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Poll builder */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                    Poll
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setNewTopicPollEnabled((v) => !v)}
+                    className="text-xs font-bold transition px-2 py-0.5 border"
+                    style={{
+                      borderRadius: "4px",
+                      backgroundColor: newTopicPollEnabled ? "#e8f4fc" : "#f8f8f8",
+                      color: newTopicPollEnabled ? "#0088cc" : "#888",
+                      borderColor: newTopicPollEnabled ? "#b3d9ee" : "#ddd",
+                    }}
+                    disabled={submittingNewTopic}
+                  >
+                    <BarChart2 className="w-3 h-3 inline mr-1" />
+                    {newTopicPollEnabled ? "Poll On" : "Add Poll"}
+                  </button>
+                </div>
+                {newTopicPollEnabled && (
+                  <div className="border border-slate-200 p-3 space-y-2.5 bg-[#f8f8f8]" style={{ borderRadius: "4px" }}>
+                    {newTopicPollOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const updated = [...newTopicPollOptions];
+                            updated[i] = e.target.value;
+                            setNewTopicPollOptions(updated);
+                          }}
+                          placeholder={`Option ${i + 1}`}
+                          maxLength={50}
+                          className="flex-1 text-sm border border-slate-200 bg-white px-2.5 py-1.5 focus:outline-none"
+                          style={{ borderRadius: "4px" }}
+                          onFocus={(e) => (e.currentTarget.style.borderColor = "#0088cc")}
+                          onBlur={(e) => (e.currentTarget.style.borderColor = "")}
+                          disabled={submittingNewTopic}
+                        />
+                        {newTopicPollOptions.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => setNewTopicPollOptions((prev) => prev.filter((_, j) => j !== i))}
+                            className="text-slate-400 hover:text-red-500 p-1"
+                            style={{ borderRadius: "4px" }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {newTopicPollOptions.length < 4 && (
+                      <button
+                        type="button"
+                        onClick={() => setNewTopicPollOptions((prev) => [...prev, ""])}
+                        className="text-xs font-bold text-slate-500 hover:text-[#0088cc] flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add option
+                      </button>
+                    )}
+                    <div className="flex flex-wrap gap-3 pt-1" style={{ borderTop: "1px solid #e9e9e9" }}>
+                      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={newTopicPollMultiple}
+                          onChange={(e) => setNewTopicPollMultiple(e.target.checked)}
+                          className="w-3.5 h-3.5 accent-[#0088cc]"
+                          disabled={submittingNewTopic}
+                        />
+                        Multiple choice
+                      </label>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 ml-auto">
+                        <span>Duration:</span>
+                        <select
+                          value={newTopicPollExpiry}
+                          onChange={(e) => setNewTopicPollExpiry(Number(e.target.value))}
+                          className="text-xs border border-slate-200 bg-white px-1.5 py-0.5 focus:outline-none"
+                          style={{ borderRadius: "4px" }}
+                          onFocus={(e) => (e.currentTarget.style.borderColor = "#0088cc")}
+                          onBlur={(e) => (e.currentTarget.style.borderColor = "")}
+                          disabled={submittingNewTopic}
+                        >
+                          <option value={3600}>1 hour</option>
+                          <option value={21600}>6 hours</option>
+                          <option value={86400}>1 day</option>
+                          <option value={259200}>3 days</option>
+                          <option value={604800}>7 days</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowNewTopicModal(false)}
+                  onClick={() => { setShowNewTopicModal(false); resetNewTopicModal(); }}
                   className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-[#222] border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
                   style={{ borderRadius: "4px" }}
                   disabled={submittingNewTopic}
