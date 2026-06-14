@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from "react";
 import {
-  Settings, LogIn, RefreshCw, Hash, Layers,
-  X, Search, Plus, MessageSquare, Repeat, Heart,
+  LogIn, RefreshCw, Hash, Layers,
+  X, Search, Plus, MessageSquare, Heart,
   Home, FolderOpen, Send, Filter
 } from "lucide-react";
 import { Board, MastodonPost, MastodonUserSession } from "./types";
 import { DEFAULT_BOARDS } from "./config/boards";
 import { fetchHashtagFeed, postStatus } from "./lib/mastodon-api";
 import { initiateLogin, completePkceLogin, getRedirectUri, loadSession, clearSession } from "./lib/mastodon-auth";
-import AdminConfigModal from "./components/AdminConfigModal";
 import PostDetailsModal from "./components/PostDetailsModal";
 
 function relativeTime(dateStr: string): string {
@@ -36,11 +35,9 @@ function stripHtml(html: string): string {
 }
 
 export default function App() {
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [activeBoardId, setActiveBoardId] = useState("");
+  const [activeBoardId, setActiveBoardId] = useState(DEFAULT_BOARDS[0]?.id ?? "");
   const [feedData, setFeedData] = useState<Record<string, { posts: MastodonPost[]; loading: boolean; error: string | null }>>({});
 
-  const [showAdminModal, setShowAdminModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<MastodonPost | null>(null);
 
   const [userSession, setUserSession] = useState<MastodonUserSession | null>(null);
@@ -62,15 +59,6 @@ export default function App() {
   const [newTopicSuccess, setNewTopicSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load boards from localStorage or static config
-    const stored = localStorage.getItem("mastodon_boards_config");
-    let loaded: Board[] = DEFAULT_BOARDS;
-    if (stored) {
-      try { loaded = JSON.parse(stored); } catch { /**/ }
-    }
-    setBoards(loaded);
-    if (loaded.length > 0) setActiveBoardId(loaded[0].id);
-
     // Restore session
     const session = loadSession();
     if (session) setUserSession(session);
@@ -99,8 +87,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!activeBoardId || boards.length === 0) return;
-    const board = boards.find((b) => b.id === activeBoardId);
+    if (!activeBoardId) return;
+    const board = DEFAULT_BOARDS.find((b) => b.id === activeBoardId);
     if (!board) return;
 
     setActiveTag("all");
@@ -112,7 +100,7 @@ export default function App() {
     });
     setFeedData(initial);
     board.subboards.forEach((sub) => loadSubboardFeed(sub.id, sub.tag));
-  }, [activeBoardId, boards, userSession]);
+  }, [activeBoardId, userSession]);
 
   const loadSubboardFeed = async (subboardId: string, tag: string) => {
     setFeedData((prev) => ({
@@ -229,7 +217,7 @@ export default function App() {
     setUserSession(null);
   };
 
-  const activeBoard = boards.find((b) => b.id === activeBoardId);
+  const activeBoard = DEFAULT_BOARDS.find((b) => b.id === activeBoardId);
 
   if (oauthLoading) {
     return (
@@ -316,14 +304,6 @@ export default function App() {
             </button>
           )}
 
-          <button
-            onClick={() => setShowAdminModal(true)}
-            className="p-2 text-slate-500 hover:text-[#222] hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors"
-            style={{ borderRadius: "4px" }}
-            title="Manage boards"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
         </div>
       </header>
 
@@ -351,7 +331,7 @@ export default function App() {
               Categories
             </div>
             <div className="space-y-0.5">
-              {boards.map((b) => {
+              {DEFAULT_BOARDS.map((b) => {
                 const isActive = b.id === activeBoardId;
                 return (
                   <button
@@ -433,7 +413,7 @@ export default function App() {
           )}
 
           {/* Sidebar footer */}
-          <div className="mt-auto pt-4 space-y-3" style={{ borderTop: "1px solid #e9e9e9" }}>
+          <div className="mt-auto pt-4" style={{ borderTop: "1px solid #e9e9e9" }}>
             <div className="px-2 space-y-1">
               <p className="text-slate-400 uppercase font-semibold" style={{ fontSize: "0.7579rem", letterSpacing: "0.05em" }}>Status</p>
               <div className="flex items-center gap-2 text-sm">
@@ -444,13 +424,6 @@ export default function App() {
                 Sourcing from {userSession ? userSession.instance : "mastodon.social"}
               </p>
             </div>
-            <button
-              onClick={() => setShowAdminModal(true)}
-              className="w-full py-2 text-xs font-bold text-slate-600 hover:text-[#222] bg-white hover:bg-slate-50 border border-slate-200 transition-colors uppercase tracking-wide"
-              style={{ borderRadius: "4px" }}
-            >
-              Edit Categories
-            </button>
           </div>
         </aside>
 
@@ -755,14 +728,7 @@ export default function App() {
               <p className="text-sm text-slate-500 mb-4">
                 Define boards with hashtags to start aggregating Mastodon discussions.
               </p>
-              <button
-                onClick={() => setShowAdminModal(true)}
-                className="px-4 py-2 text-sm font-bold text-white"
-                style={{ backgroundColor: "#0088cc", borderRadius: "4px" }}
-              >
-                Create Categories
-              </button>
-            </div>
+              </div>
           )}
         </main>
       </div>
@@ -836,22 +802,6 @@ export default function App() {
             </form>
           </div>
         </div>
-      )}
-
-      {/* Admin modal */}
-      {showAdminModal && (
-        <AdminConfigModal
-          currentBoards={boards}
-          onClose={() => setShowAdminModal(false)}
-          onSaveSuccess={(updated) => {
-            setBoards(updated);
-            if (updated.length > 0 && !updated.some((b) => b.id === activeBoardId)) {
-              setActiveBoardId(updated[0].id);
-            } else if (updated.length === 0) {
-              setActiveBoardId("");
-            }
-          }}
-        />
       )}
 
       {/* New topic modal */}
