@@ -603,10 +603,10 @@ export default function App() {
                       Topic
                     </th>
                     <th
-                      className="hidden lg:table-cell px-2 py-3 text-center text-slate-500 font-semibold uppercase tracking-wide bg-white"
-                      style={{ fontSize: "0.8em", width: "146px" }}
+                      className="hidden md:table-cell px-2 py-3 text-center text-slate-500 font-semibold uppercase tracking-wide bg-white"
+                      style={{ fontSize: "0.8em", width: "4.3em" }}
                     >
-                      Posters
+                      Boosts
                     </th>
                     <th
                       className="hidden md:table-cell px-2 py-3 text-center text-slate-500 font-semibold uppercase tracking-wide bg-white"
@@ -642,8 +642,8 @@ export default function App() {
                               </div>
                             </div>
                           </td>
-                          <td className="hidden lg:table-cell px-2 py-3">
-                            <div className="w-6 h-6 bg-slate-200 rounded mx-auto animate-pulse" />
+                          <td className="hidden md:table-cell px-2 py-3">
+                            <div className="h-4 w-5 bg-slate-200 rounded mx-auto animate-pulse" />
                           </td>
                           <td className="hidden md:table-cell px-2 py-3">
                             <div className="h-4 w-5 bg-slate-200 rounded mx-auto animate-pulse" />
@@ -708,8 +708,7 @@ export default function App() {
                                 src={post.account?.avatar}
                                 alt={post.account?.username}
                                 referrerPolicy="no-referrer"
-                                className="w-9 h-9 object-cover border border-slate-200"
-                                style={{ borderRadius: "4px" }}
+                                className="w-9 h-9 object-cover border border-slate-200 rounded-full"
                               />
                             </a>
                             <div className="min-w-0 flex-1">
@@ -748,14 +747,10 @@ export default function App() {
                             </div>
                           </div>
                         </td>
-                        <td className="hidden lg:table-cell px-2 py-3" style={{ width: "146px" }}>
-                          <img
-                            src={post.account?.avatar}
-                            alt=""
-                            referrerPolicy="no-referrer"
-                            className="w-6 h-6 object-cover border border-slate-200 mx-auto"
-                            style={{ borderRadius: "4px" }}
-                          />
+                        <td className="hidden md:table-cell px-2 py-3 text-center" style={{ width: "4.3em" }}>
+                          <span className="font-medium text-slate-600" style={{ fontSize: "0.9em" }}>
+                            {post.reblogs_count}
+                          </span>
                         </td>
                         <td className="hidden md:table-cell px-2 py-3 text-center" style={{ width: "4.3em" }}>
                           <span
