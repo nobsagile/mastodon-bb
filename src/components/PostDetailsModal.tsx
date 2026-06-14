@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import {
   X, MessageSquare, Repeat, Heart, ExternalLink,
   Send, LogIn, CornerDownRight, RotateCw, CornerUpLeft,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, Link,
 } from "lucide-react";
 import { MastodonPost, MastodonUserSession } from "../types";
 import { fetchPostContext, postReply } from "../lib/mastodon-api";
@@ -264,6 +264,14 @@ export default function PostDetailsModal({
   const [successMsg, setSuccessMsg] = useState("");
   const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
   const [replyToPost, setReplyToPost] = useState<MastodonPost | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const loadReplies = async () => {
     setLoading(true);
@@ -383,14 +391,27 @@ export default function PostDetailsModal({
           Back to list
         </button>
 
-        <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-400">
+        <div className="flex items-center gap-2">
           <span
-            className="border px-2 py-0.5 uppercase"
+            className="border px-2 py-0.5 uppercase font-mono text-xs font-bold"
             style={{ color: "#0088cc", backgroundColor: "#e8f4fc", borderColor: "#b3d9ee", borderRadius: "4px" }}
           >
             #{post.associatedSubboard?.tag || "Thread"}
           </span>
-          <span className="hidden sm:inline text-slate-500">Viewing topic</span>
+          <button
+            onClick={copyLink}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border transition-colors"
+            style={{
+              borderRadius: "4px",
+              backgroundColor: copied ? "#e8f4fc" : "#fff",
+              borderColor: copied ? "#b3d9ee" : "#e2e2e2",
+              color: copied ? "#0088cc" : "#666",
+            }}
+            title="Copy link to this post"
+          >
+            <Link className="w-3.5 h-3.5" />
+            {copied ? "Copied!" : "Copy link"}
+          </button>
         </div>
       </div>
 
