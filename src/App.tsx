@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { Board, MastodonPost, MastodonUserSession } from "./types";
 import { DEFAULT_BOARDS } from "./config/boards";
-import { fetchHashtagFeed, postStatus } from "./lib/mastodon-api";
+import { fetchHashtagFeed, fetchStatus, postStatus } from "./lib/mastodon-api";
 import { initiateLogin, completePkceLogin, getRedirectUri, loadSession, clearSession } from "./lib/mastodon-auth";
 import PostDetailsModal from "./components/PostDetailsModal";
 
@@ -83,6 +83,16 @@ export default function App() {
           setOauthLoading(false);
           window.history.replaceState({}, document.title, window.location.pathname);
         });
+      return;
+    }
+
+    // Deep-link: open a specific post directly
+    const postId = urlParams.get("post");
+    const postInstance = urlParams.get("instance") || "mastodon.social";
+    if (postId) {
+      fetchStatus(postId, postInstance, session?.token)
+        .then((p) => setSelectedPost(p))
+        .catch((err) => console.error("Deep-link fetch failed:", err));
     }
   }, []);
 
@@ -215,6 +225,18 @@ export default function App() {
   const handleLogout = () => {
     clearSession();
     setUserSession(null);
+  };
+
+  const openPost = (post: MastodonPost) => {
+    setSelectedPost(post);
+    const instance = userSession?.instance || "mastodon.social";
+    const params = new URLSearchParams({ post: post.id, instance });
+    window.history.pushState(null, "", "?" + params);
+  };
+
+  const closePost = () => {
+    setSelectedPost(null);
+    window.history.pushState(null, "", window.location.pathname);
   };
 
   const activeBoard = DEFAULT_BOARDS.find((b) => b.id === activeBoardId);
@@ -434,7 +456,7 @@ export default function App() {
               post={selectedPost}
               boardInstance={userSession ? userSession.instance : "mastodon.social"}
               userSession={userSession}
-              onClose={() => setSelectedPost(null)}
+              onClose={closePost}
               onLoginClick={() => setShowLoginDialog(true)}
             />
           ) : activeBoard ? (
@@ -628,7 +650,7 @@ export default function App() {
                     unifiedPosts.map((post) => (
                       <tr
                         key={post.id}
-                        onClick={() => setSelectedPost(post)}
+                        onClick={() => openPost(post)}
                         className="cursor-pointer transition-colors hover:bg-slate-50 group"
                         style={{ borderBottom: "1px solid #e9e9e9" }}
                       >

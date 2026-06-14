@@ -25,6 +25,20 @@ export async function fetchHashtagFeed(
   return { posts: Array.isArray(posts) ? posts : [], feedInstance: domain };
 }
 
+export async function fetchStatus(
+  postId: string,
+  instance: string,
+  token?: string
+): Promise<MastodonPost> {
+  const domain = cleanInstanceDomain(instance);
+  const url = `https://${domain}/api/v1/statuses/${encodeURIComponent(postId)}`;
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  return res.json();
+}
+
 export async function fetchPostContext(
   postId: string,
   instance: string,
