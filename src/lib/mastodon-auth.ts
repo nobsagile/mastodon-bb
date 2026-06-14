@@ -50,7 +50,7 @@ export async function registerMastodonApp(
   });
   if (!res.ok) throw new Error(`App registration failed: ${await res.text()}`);
   const data = await res.json() as any;
-  localStorage.setItem(storageKey, JSON.stringify({ client_id: data.client_id }));
+  localStorage.setItem(storageKey, JSON.stringify({ client_id: data.client_id, client_secret: data.client_secret }));
   return data.client_id;
 }
 
@@ -95,13 +95,14 @@ export async function completePkceLogin(
   const storageKey = `mastodon_client_${instance}`;
   const clientData = localStorage.getItem(storageKey);
   if (!clientData) throw new Error(`No client registration found for ${instance}.`);
-  const { client_id } = JSON.parse(clientData);
+  const { client_id, client_secret } = JSON.parse(clientData);
 
   const tokenRes = await fetch(`https://${instance}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       client_id,
+      client_secret,
       grant_type: "authorization_code",
       redirect_uri: redirectUri,
       code,

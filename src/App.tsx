@@ -88,7 +88,7 @@ export default function App() {
         })
         .catch((err) => {
           console.error("OAuth callback error:", err);
-          setLoginError("Sign in failed. Please try again.");
+          setLoginError(err?.message || "Sign in failed. Please try again.");
           setShowLoginDialog(true);
         })
         .finally(() => {
