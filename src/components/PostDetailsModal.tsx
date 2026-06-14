@@ -5,7 +5,7 @@ import {
   Link, Bookmark, EyeOff, Eye, AlertCircle, Globe, Lock, BarChart2,
   Pencil,
 } from "lucide-react";
-import { MastodonPost, MastodonUserSession, Poll } from "../types";
+import { MastodonPost, MastodonUserSession, Poll, PostOptions } from "../types";
 import {
   fetchPostContext, postReply,
   favouriteStatus, unfavouriteStatus,
@@ -364,6 +364,9 @@ export default function PostDetailsModal({ post, boardInstance, userSession, onC
   const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
   const [replyToPost, setReplyToPost] = useState<MastodonPost | null>(null);
   const [copied, setCopied] = useState(false);
+  const [replyCw, setReplyCw] = useState("");
+  const [replyCwEnabled, setReplyCwEnabled] = useState(false);
+  const [replyVisibility, setReplyVisibility] = useState<PostOptions["visibility"]>("public");
 
   // CW + sensitive state for original post
   const [cwRevealed, setCwRevealed] = useState(false);
@@ -438,10 +441,15 @@ export default function PostDetailsModal({ post, boardInstance, userSession, onC
     setError(null);
     setSuccessMsg("");
     const target = replyToPost || displayPost;
+    const opts: PostOptions = { visibility: replyVisibility };
+    if (replyCwEnabled && replyCw.trim()) opts.spoilerText = replyCw.trim();
     try {
-      await postReply(target.url, replyText, userSession.instance, userSession.token, target.id);
+      await postReply(target.url, replyText, userSession.instance, userSession.token, target.id, opts);
       setSuccessMsg("Reply published!");
       setReplyToPost(null);
+      setReplyCw("");
+      setReplyCwEnabled(false);
+      setReplyVisibility("public");
       const h = displayPost.account.acct.includes("@") ? `@${displayPost.account.acct}` : `@${displayPost.account.acct}@${boardInstance}`;
       setReplyText(`${h} `);
       setTimeout(() => { loadReplies(); setSuccessMsg(""); }, 1500);
@@ -770,6 +778,7 @@ export default function PostDetailsModal({ post, boardInstance, userSession, onC
 
         {userSession ? (
           <form onSubmit={handlePostReply} className="space-y-3">
+            {/* Replying-to banner */}
             {replyToPost && (
               <div className="p-2.5 text-xs flex items-center justify-between" style={{ backgroundColor: "#e8f4fc", border: "1px solid #b3d9ee", borderRadius: "4px", color: "#0088cc" }}>
                 <div className="flex items-center gap-1.5 font-bold">
@@ -781,12 +790,66 @@ export default function PostDetailsModal({ post, boardInstance, userSession, onC
                 </button>
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <img src={userSession.avatar} alt="" referrerPolicy="no-referrer" className="w-6 h-6 border border-slate-200" style={{ borderRadius: "4px" }} />
+
+            {/* Author row + visibility + CW toggle */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <img src={userSession.avatar} alt="" referrerPolicy="no-referrer" className="w-6 h-6 border border-slate-200 flex-shrink-0" style={{ borderRadius: "4px" }} />
               <span className="text-xs text-slate-500 font-bold">Reply as <strong className="text-[#222]">{userSession.displayName}</strong></span>
-              <span className="ml-auto text-[11px] font-mono font-bold px-2 py-0.5 border" style={{ color: "#0088cc", backgroundColor: "#e8f4fc", borderColor: "#b3d9ee", borderRadius: "4px" }}>{userSession.instance}</span>
+              <div className="ml-auto flex items-center gap-1.5">
+                {/* Visibility selector */}
+                <div className="relative">
+                  <select
+                    value={replyVisibility}
+                    onChange={(e) => setReplyVisibility(e.target.value as PostOptions["visibility"])}
+                    className="text-[11px] font-bold border bg-white pl-1.5 pr-5 py-0.5 focus:outline-none appearance-none"
+                    style={{ borderRadius: "4px", color: "#0088cc", borderColor: "#b3d9ee", backgroundColor: "#e8f4fc" }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "#0088cc")}
+                    onBlur={(e) => (e.currentTarget.style.borderColor = "#b3d9ee")}
+                    disabled={submittingReply}
+                  >
+                    <option value="public">🌐 Public</option>
+                    <option value="unlisted">👁️ Unlisted</option>
+                    <option value="private">🔒 Followers</option>
+                    <option value="direct">✉️ Direct</option>
+                  </select>
+                  <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: "#0088cc" }} />
+                </div>
+                {/* CW toggle */}
+                <button
+                  type="button"
+                  onClick={() => setReplyCwEnabled((v) => !v)}
+                  className="text-[11px] font-bold px-1.5 py-0.5 border transition"
+                  style={{
+                    borderRadius: "4px",
+                    backgroundColor: replyCwEnabled ? "#fef3c7" : "#f8f8f8",
+                    color: replyCwEnabled ? "#d97706" : "#888",
+                    borderColor: replyCwEnabled ? "#fcd34d" : "#ddd",
+                  }}
+                  title="Content warning"
+                >
+                  <AlertCircle className="w-3 h-3 inline mr-0.5" />CW
+                </button>
+              </div>
             </div>
-            <div className="relative border border-slate-200 overflow-hidden" style={{ borderRadius: "4px" }}
+
+            {/* CW input */}
+            {replyCwEnabled && (
+              <input
+                type="text"
+                value={replyCw}
+                onChange={(e) => setReplyCw(e.target.value)}
+                placeholder="Content warning…"
+                className="w-full text-sm border border-amber-200 bg-amber-50 px-3 py-1.5 focus:outline-none"
+                style={{ borderRadius: "4px" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#f59e0b")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "")}
+                disabled={submittingReply}
+                autoFocus
+              />
+            )}
+
+            {/* Textarea + footer */}
+            <div className="border border-slate-200 overflow-hidden" style={{ borderRadius: "4px" }}
               onFocusCapture={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#0088cc"; }}
               onBlurCapture={(e) => { (e.currentTarget as HTMLElement).style.borderColor = ""; }}
             >
@@ -798,9 +861,10 @@ export default function PostDetailsModal({ post, boardInstance, userSession, onC
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder="Write your reply…"
                 className="w-full p-3 text-sm bg-transparent border-none focus:outline-none resize-none text-[#222] placeholder-slate-400 leading-relaxed font-medium"
+                disabled={submittingReply}
               />
               <div className="flex justify-between items-center px-3 py-2 bg-slate-50" style={{ borderTop: "1px solid #e9e9e9" }}>
-                <span className={`text-[10px] font-mono ${replyText.length > 480 ? "text-red-500 font-bold" : "text-slate-400"}`}>{500 - replyText.length} chars left</span>
+                <span className={`text-[10px] font-mono ${replyText.length > 480 ? "text-red-500 font-bold" : "text-slate-400"}`}>{500 - replyText.length}</span>
                 <button type="submit" disabled={submittingReply || !replyText.trim()} className="px-4 py-1.5 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50" style={{ backgroundColor: "#0088cc", borderRadius: "4px" }}>
                   <Send className="w-3.5 h-3.5" /> {submittingReply ? "Sending…" : "Send Reply"}
                 </button>

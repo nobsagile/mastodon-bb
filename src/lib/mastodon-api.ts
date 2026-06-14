@@ -127,15 +127,21 @@ export async function postReply(
   replyText: string,
   userInstance: string,
   userToken: string,
-  fallbackPostId: string
+  fallbackPostId: string,
+  opts?: PostOptions
 ): Promise<MastodonPost> {
   const domain = cleanInstanceDomain(userInstance);
   const targetPostId = await resolveStatusId(originalPostUrl, fallbackPostId, userInstance, userToken);
 
+  const body: Record<string, unknown> = { status: replyText, in_reply_to_id: targetPostId };
+  if (opts?.spoilerText) body.spoiler_text = opts.spoilerText;
+  if (opts?.visibility) body.visibility = opts.visibility;
+  if (opts?.sensitive != null) body.sensitive = opts.sensitive;
+
   const res = await fetch(`https://${domain}/api/v1/statuses`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}` },
-    body: JSON.stringify({ status: replyText, in_reply_to_id: targetPostId }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
