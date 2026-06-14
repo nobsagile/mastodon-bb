@@ -32,7 +32,10 @@ export async function registerMastodonApp(
   const existing = localStorage.getItem(storageKey);
   if (existing) {
     try {
-      return JSON.parse(existing).client_id;
+      const parsed = JSON.parse(existing);
+      if (parsed.client_id && parsed.client_secret) return parsed.client_id;
+      // missing client_secret (stale entry) — re-register
+      localStorage.removeItem(storageKey);
     } catch {
       // corrupt entry — re-register
     }
