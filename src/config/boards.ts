@@ -8,17 +8,8 @@ export const DEFAULT_BOARDS: Board[] = [
     subboards: [
       { id: "agile-sub", title: "Agile", tag: "agile" },
       { id: "scrum-sub", title: "Scrum", tag: "scrum" },
-      { id: "kanban-sub", title: "Kanban", tag: "kanban" }
-    ]
-  },
-  {
-    id: "tech",
-    title: "Technology & Coding",
-    description: "Exciting topics around web development and modern technologies.",
-    subboards: [
-      { id: "webdev-sub", title: "WebDev", tag: "webdev" },
-      { id: "typescript-sub", title: "TypeScript", tag: "typescript" },
-      { id: "react-sub", title: "React", tag: "reactjs" }
+      { id: "kanban-sub", title: "Kanban", tag: "kanban" },
+      { id: "development-sub", title: "Development", tag: "development" }
     ]
   }
 ];
