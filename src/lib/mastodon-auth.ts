@@ -67,8 +67,13 @@ export async function initiateLogin(
   const verifier = await generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
 
+  const stateArray = new Uint8Array(32);
+  crypto.getRandomValues(stateArray);
+  const state = base64urlEncode(stateArray);
+
   sessionStorage.setItem("mastodon_pkce_verifier", verifier);
   sessionStorage.setItem("mastodon_pkce_instance", instance);
+  sessionStorage.setItem("mastodon_pkce_state", state);
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -77,7 +82,7 @@ export async function initiateLogin(
     scope: "read write",
     code_challenge: challenge,
     code_challenge_method: "S256",
-    state: instance,
+    state,
   });
 
   window.location.href = `https://${instance}/oauth/authorize?${params}`;
@@ -88,16 +93,22 @@ export async function completePkceLogin(
   state: string,
   redirectUri: string
 ): Promise<MastodonUserSession> {
-  const instance = state;
+  const storedState = sessionStorage.getItem("mastodon_pkce_state");
   const verifier = sessionStorage.getItem("mastodon_pkce_verifier");
-  if (!verifier) throw new Error("PKCE verifier missing. Please try again.");
+  const instance = sessionStorage.getItem("mastodon_pkce_instance");
 
-  const storedInstance = sessionStorage.getItem("mastodon_pkce_instance");
-  if (storedInstance !== instance) throw new Error("Instance mismatch in OAuth state.");
+  const clearPkce = () => {
+    sessionStorage.removeItem("mastodon_pkce_verifier");
+    sessionStorage.removeItem("mastodon_pkce_instance");
+    sessionStorage.removeItem("mastodon_pkce_state");
+  };
+
+  if (!verifier || !instance || !storedState) { clearPkce(); throw new Error("PKCE session missing. Please try again."); }
+  if (state !== storedState) { clearPkce(); throw new Error("OAuth state mismatch. Possible CSRF attack."); }
 
   const storageKey = `mastodon_client_${instance}`;
   const clientData = localStorage.getItem(storageKey);
-  if (!clientData) throw new Error(`No client registration found for ${instance}.`);
+  if (!clientData) { clearPkce(); throw new Error(`No client registration found for ${instance}.`); }
   const { client_id, client_secret } = JSON.parse(clientData);
 
   const tokenRes = await fetch(`https://${instance}/oauth/token`, {
@@ -112,14 +123,14 @@ export async function completePkceLogin(
       code_verifier: verifier,
     }),
   });
-  if (!tokenRes.ok) throw new Error(`Token exchange failed: ${await tokenRes.text()}`);
+  if (!tokenRes.ok) { clearPkce(); throw new Error(`Token exchange failed: ${await tokenRes.text()}`); }
   const tokenData = await tokenRes.json() as any;
   const accessToken = tokenData.access_token;
 
   const userRes = await fetch(`https://${instance}/api/v1/accounts/verify_credentials`, {
     headers: { "Authorization": `Bearer ${accessToken}` },
   });
-  if (!userRes.ok) throw new Error("Failed to fetch user profile.");
+  if (!userRes.ok) { clearPkce(); throw new Error("Failed to fetch user profile."); }
   const user = await userRes.json() as any;
 
   const session: MastodonUserSession = {
@@ -132,8 +143,7 @@ export async function completePkceLogin(
   };
 
   localStorage.setItem("mastodon_user_session", JSON.stringify(session));
-  sessionStorage.removeItem("mastodon_pkce_verifier");
-  sessionStorage.removeItem("mastodon_pkce_instance");
+  clearPkce();
 
   return session;
 }
